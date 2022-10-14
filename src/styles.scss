@@ -1,8 +1,72 @@
-h1 {
-  color: red;
-  font-size: 26px;
+@import "./button.scss";
+@mixin defineComponent($options) {
+    $sizes: map-get( $map: $options, $key: sizes, );
+    $styles: map-get( $map: $options, $key: styles, );
+    $variations: map-get( $map: $options, $key: variations, );
+    $componentName: map-get( $map: $options, $key: componentName, );
+    $componentPrefix: -#{$componentName};
+    @if ($styles) {
+        @include createStyles($styles, $componentPrefix, null);
+    }
+    @if ($variations) {
+        @include createVariations($variations, $componentPrefix);
+    }
+    @if ($sizes) {
+        $componentSizesPrefix: --size#{$componentPrefix};
+        $sizesStyles: map-get( $map: $sizes, $key: styles, );
+        @if ($sizesStyles) {
+            @include createStylesForSize($sizesStyles, $componentSizesPrefix, null);
+        }
+    }
+}
 
-  &:hover {
-    color: blue;
-  }
+@mixin createStyles($styles, $prefix, $modificator) {
+    @each $property,
+    $value in $styles {
+        @include conceptName($prefix, $modificator, $property, $value);
+    }
+}
+
+@mixin createStylesForSize($styles, $prefix, $modificator) {
+    $defaultSizes: getDefaultSizes();
+    @each $property,
+    $values in $styles {
+        @if (length($list: $values) > 1) {
+            @each $size in $defaultSizes {
+                @each $value in $values {
+                    @debug #{$prefix}--#{$size}_#{$property};
+                }
+            }
+        }
+    }
+}
+
+@mixin createVariations($variations, $prefix) {
+    @each $variationName,
+    $variationOptions in $variations {
+        $variationStyles: map-get( $map: $variationOptions, $key: styles, );
+        $variationsOfVariation: map-get( $map: $variationOptions, $key: variations, );
+        @include createStyles($variationStyles, $prefix, $variationName);
+        @if ($variationsOfVariation) {
+            $subVariationPrefix: #{$prefix}--#{$variationName};
+            @include createVariations($variationsOfVariation, $subVariationPrefix);
+        }
+    }
+}
+
+@mixin conceptName($prefix, $modificator, $property, $value) {
+    @if ($prefix and $modificator) {
+        --concept#{$prefix}--#{$modificator}_#{$property}: #{$value};
+    }
+    @else if ($prefix and not $modificator) {
+        --concept#{$prefix}_#{$property}: #{$value};
+    }
+}
+
+@function getDefaultSizes() {
+    @return ("small", "medium", "large");
+}
+
+body {
+    @include defineComponent($buttonOptions);
 }
