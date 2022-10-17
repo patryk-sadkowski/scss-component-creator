@@ -1,72 +1,207 @@
 @import "./button.scss";
 @mixin defineComponent($options) {
-    $sizes: map-get( $map: $options, $key: sizes, );
-    $styles: map-get( $map: $options, $key: styles, );
-    $variations: map-get( $map: $options, $key: variations, );
-    $componentName: map-get( $map: $options, $key: componentName, );
-    $componentPrefix: -#{$componentName};
-    @if ($styles) {
-        @include createStyles($styles, $componentPrefix, null);
+  $sizes: map-get(
+    $map: $options,
+    $key: sizes,
+  );
+  $styles: map-get(
+    $map: $options,
+    $key: styles,
+  );
+  $variations: map-get(
+    $map: $options,
+    $key: variations,
+  );
+  $componentName: map-get(
+    $map: $options,
+    $key: componentName,
+  );
+  $componentPrefix: -#{$componentName};
+  @if ($styles) {
+    @include createStyles($styles, $componentPrefix, null);
+  }
+  @if ($variations) {
+    @include createVariations($variations, $componentPrefix);
+  }
+  @if ($sizes) {
+    $componentSizesPrefix: --size#{$componentPrefix};
+    $sizesStyles: map-get(
+      $map: $sizes,
+      $key: styles,
+    );
+    @if ($sizesStyles) {
+      @include createStylesForSize($sizesStyles, $componentSizesPrefix, null);
     }
-    @if ($variations) {
-        @include createVariations($variations, $componentPrefix);
-    }
-    @if ($sizes) {
-        $componentSizesPrefix: --size#{$componentPrefix};
-        $sizesStyles: map-get( $map: $sizes, $key: styles, );
-        @if ($sizesStyles) {
-            @include createStylesForSize($sizesStyles, $componentSizesPrefix, null);
-        }
-    }
+  }
+}
+
+@function str-replace($string, $search, $replace: "") {
+  $index: str-index($string, $search);
+
+  @if $index {
+    @return str-slice($string, 1, $index - 1) + $replace +
+      str-replace(
+        str-slice($string, $index + str-length($search)),
+        $search,
+        $replace
+      );
+  }
+
+  @return $string;
 }
 
 @mixin createStyles($styles, $prefix, $modificator) {
-    @each $property,
-    $value in $styles {
-        @include conceptName($prefix, $modificator, $property, $value);
-    }
+  @each $property, $value in $styles {
+    @include conceptName($prefix, $modificator, $property, $value);
+  }
 }
 
 @mixin createStylesForSize($styles, $prefix, $modificator) {
-    $defaultSizes: getDefaultSizes();
-    @each $property,
-    $values in $styles {
-        @if (length($list: $values) > 1) {
-            @each $size in $defaultSizes {
-                @each $value in $values {
-                    @debug #{$prefix}--#{$size}_#{$property};
-                }
-            }
-        }
+  $defaultSizes: getDefaultSizes();
+  @each $property, $values in $styles {
+    $mapOfCurrentPropertySizes: ();
+    @each $size in $defaultSizes {
+      $currentValue: null;
+      @if (length($list: $values) == 3) {
+        $currentValue: nth(
+          $list: $values,
+          $n:
+            index(
+              $list: $defaultSizes,
+              $value: $size,
+            ),
+        );
+      } @else {
+        $currentValue: nth(
+          $list: $values,
+          $n: 1,
+        );
+      }
+
+      @if ($size == "small") {
+        $mapOfCurrentPropertySizes: map-merge(
+          $map1: $mapOfCurrentPropertySizes,
+          $map2: (
+            "xsmall": createLeftHandOfConceptName($prefix, "xsmall", $property),
+          ),
+        );
+
+        @include conceptName(
+          $prefix,
+          "xsmall",
+          $property,
+          createLeftHandOfConceptName($prefix, $size, $property)
+        );
+      }
+      $mapOfCurrentPropertySizes: map-merge(
+        $map1: $mapOfCurrentPropertySizes,
+        $map2: (
+          #{$size}: createLeftHandOfConceptName($prefix, #{$size}, $property),
+        ),
+      );
+      @include conceptName($prefix, $size, $property, $currentValue);
+      @if ($size == "large") {
+        $mapOfCurrentPropertySizes: map-merge(
+          $map1: $mapOfCurrentPropertySizes,
+          $map2: (
+            "xlarge": createLeftHandOfConceptName($prefix, "xlarge", $property),
+          ),
+        );
+        @include conceptName(
+          $prefix,
+          "xlarge",
+          $property,
+          createLeftHandOfConceptName($prefix, $size, $property)
+        );
+      }
     }
+
+    @include createSizeThemesFromSizeMaps($mapOfCurrentPropertySizes);
+  }
+}
+
+@mixin createSizeThemesFromSizeMaps($map) {
+  $xsmall: map-get(
+    $map: $map,
+    $key: xsmall,
+  );
+
+  $small: map-get(
+    $map: $map,
+    $key: small,
+  );
+
+  $medium: map-get(
+    $map: $map,
+    $key: medium,
+  );
+
+  $large: map-get(
+    $map: $map,
+    $key: large,
+  );
+
+  $xlarge: map-get(
+    $map: $map,
+    $key: xlarge,
+  );
+
+  &.componentSizeLarge,
+  .componentSizeLarge {
+    #{str-replace($small, '--size', '')}: var(#{$small});
+    #{str-replace(str-replace($medium, '--medium', ''), '--size', '')}: var(
+      #{$small}
+    );
+    #{str-replace($large, '--size', '')}: var(#{$large});
+  }
+  &.componentSizeNormal,
+  .componentSizeNormal {
+    #{str-replace($small, '--size', '')}: var(#{$xsmall});
+    #{str-replace(str-replace($medium, '--medium', ''), '--size', '')}: var(
+      #{$small}
+    );
+    #{str-replace($large, '--size', '')}: var(#{$medium});
+  }
 }
 
 @mixin createVariations($variations, $prefix) {
-    @each $variationName,
-    $variationOptions in $variations {
-        $variationStyles: map-get( $map: $variationOptions, $key: styles, );
-        $variationsOfVariation: map-get( $map: $variationOptions, $key: variations, );
-        @include createStyles($variationStyles, $prefix, $variationName);
-        @if ($variationsOfVariation) {
-            $subVariationPrefix: #{$prefix}--#{$variationName};
-            @include createVariations($variationsOfVariation, $subVariationPrefix);
-        }
+  @each $variationName, $variationOptions in $variations {
+    $variationStyles: map-get(
+      $map: $variationOptions,
+      $key: styles,
+    );
+    $variationsOfVariation: map-get(
+      $map: $variationOptions,
+      $key: variations,
+    );
+    @include createStyles($variationStyles, $prefix, $variationName);
+    @if ($variationsOfVariation) {
+      $subVariationPrefix: #{$prefix}--#{$variationName};
+      @include createVariations($variationsOfVariation, $subVariationPrefix);
     }
+  }
+}
+
+@function createLeftHandOfConceptName($prefix, $modificator, $property) {
+  @if ($prefix and $modificator) {
+    @return --concept#{$prefix}--#{$modificator}_#{$property};
+  } @else if ($prefix and not $modificator) {
+    @return --concept#{$prefix}_#{$property};
+  }
 }
 
 @mixin conceptName($prefix, $modificator, $property, $value) {
-    @if ($prefix and $modificator) {
-        --concept#{$prefix}--#{$modificator}_#{$property}: #{$value};
-    }
-    @else if ($prefix and not $modificator) {
-        --concept#{$prefix}_#{$property}: #{$value};
-    }
+  #{createLeftHandOfConceptName(
+    $prefix,
+    $modificator,
+    $property
+  )}: #{$value};
 }
 
 @function getDefaultSizes() {
-    @return ("small", "medium", "large");
+  @return ("small", "medium", "large");
 }
 
 body {
-    @include defineComponent($buttonOptions);
+  @include defineComponent($buttonOptions);
 }
